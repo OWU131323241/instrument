@@ -17,7 +17,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const MODEL = 'gpt-4o-mini';
+const MODEL = 'gpt-4o';
 const OPENAI_API_ENDPOINT = "https://openai-api-proxy-746164391621.us-west1.run.app";
 
 let promptTemplate;
@@ -50,7 +50,8 @@ app.post("/api/generate-score", async (req, res) => {
                 messages: [
                     { role: 'system', content: finalPrompt }
                 ],
-                response_format: { type: "json_object" }
+                response_format: { type: "json_object" },
+                temperature: 0.2
             })
         });
 
