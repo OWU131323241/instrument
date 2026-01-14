@@ -31,6 +31,21 @@
         input { padding: 12px; font-size: 18px; border-radius: 8px; border: none; width: 250px; }
         button { padding: 12px 24px; font-size: 18px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #2563eb; }
+
+        /* --- 【追加】右下のQRコード設定 --- */
+        .qr-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+        .qr-container img {
+            width: 120px; /* お好みのサイズに調整してください */
+            height: auto;
+            border-radius: 10px;
+            border: 2px solid #334155;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
@@ -55,14 +70,16 @@
         </div>
     </div>
 
+    <div class="qr-container">
+        <img src="qr.png" alt="QR Code">
+    </div>
+
     <script>
+        // ... (以下、既存のJavaScriptコードと同じ) ...
         const socket = io();
-        
-        // 日本語音名リスト
         const NOTES_JP = ["ド", "レ", "ミ", "ファ", "ソ", "ラ", "シ", "ド"];
         const NOTES_TONE = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
 
-        // ピアノ音源の設定
         const piano = new Tone.Sampler({
             urls: {
                 C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
@@ -74,27 +91,19 @@
 
         let currentNoteIndex = null;
 
-        // センサー受信時の処理
-        // --- instrument.html の変更箇所 ---
-
         socket.on("sensor", (data) => {
             const angleEl = document.getElementById("angleDisp");
             const noteEl = document.getElementById("noteDisp");
 
-            // 【1】表示の更新（ボタンが押されていなくても常に実行）
             const angle = Math.round(data.angle);
             angleEl.textContent = angle + "°";
 
-            // 角度から音のインデックスを計算
             let index = Math.floor(((data.angle + 45) / 90) * NOTES_TONE.length);
             index = Math.max(0, Math.min(index, NOTES_TONE.length - 1));
             
-            // 日本語音名を表示
             noteEl.textContent = NOTES_JP[index];
 
-            // 【2】音を鳴らすかどうかの判定
             if (data.active) {
-                // ボタンが押されている場合
                 if (index !== currentNoteIndex) {
                     const note = NOTES_TONE[index];
                     piano.triggerRelease(); 
@@ -102,14 +111,11 @@
                     currentNoteIndex = index;
                 }
             } else {
-                // ボタンが離されている場合
                 piano.triggerRelease();
                 currentNoteIndex = null;
-                // noteEl.textContent = "--"; // ここを消すと表示が残ります
             }
         });
 
-        // 楽譜生成API呼び出し
         async function generateScore() {
             const songName = document.getElementById("songInput").value;
             if(!songName) return;
@@ -126,7 +132,6 @@
                 const data = await res.json();
                 scoreEl.innerText = data.text || data.error;
                 
-                // 音声エンジンの開始（ブラウザ制限解除）
                 await Tone.start();
             } catch (e) {
                 scoreEl.innerText = "エラーが発生しました";
