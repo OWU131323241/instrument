@@ -38,7 +38,7 @@ app.post("/api/generate-score", async (req, res) => {
         const apiKey = process.env.OPENAI_API_KEY;
         
         // 安全のために gpt-4o を使用（o1が使える環境なら o1-mini に変更可）
-        const MODEL = 'gpt-4o'; 
+        const MODEL = 'o1-preview';
 
         const response = await fetch(OPENAI_API_ENDPOINT, {
             method: 'POST',
