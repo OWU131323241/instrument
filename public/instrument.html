@@ -1,133 +1,64 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Tilt Synth - 演奏画面</title>
+    <title>楽器ゲーム本体</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        body { margin:0; background:#0f172a; color:#f1f5f9; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-        h1 { margin-top: 20px; color: #3b82f6; }
-        
-        /* 楽譜エリア */
-        #score { 
-            width: 90%; max-width: 600px; background: #1e293b; padding: 25px; 
-            border-radius: 15px; margin: 20px 0; text-align: left; 
-            white-space: pre-wrap; font-size: 24px; line-height: 1.8; 
-            border-left: 5px solid #3b82f6; min-height: 100px;
-        }
-
-        /* モニターエリア（角度と音名） */
-        .monitor { 
-            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; 
-            width: 90%; max-width: 600px; margin-top: 10px; 
-        }
-        .card { background: #070e1e; padding: 20px; border-radius: 15px; text-align: center; border: 1px solid #334155; }
-        .label { font-size: 14px; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; }
-        .val { font-size: 48px; font-weight: bold; color: #60a5fa; }
-
-        /* 入力エリア */
-        .input-area { margin-bottom: 20px; }
-        input { padding: 12px; font-size: 18px; border-radius: 8px; border: none; width: 250px; }
-        button { padding: 12px 24px; font-size: 18px; border-radius: 8px; background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #2563eb; }
+        body { background: #111; color: white; font-family: sans-serif; text-align: center; }
+        #score { white-space: pre-wrap; font-size: 24px; background: #222; padding: 20px; margin: 20px; border-radius: 10px; }
+        .playing { color: #4ade80; font-weight: bold; }
     </style>
 </head>
 <body>
-
-    <h1>🎸 AI Tilt Piano</h1>
-
-    <div class="input-area">
-        <input type="text" id="songInput" placeholder="曲名を入力してください">
-        <button onclick="generateScore()">楽譜生成</button>
-    </div>
-
+    <h1>AI楽器ゲーム</h1>
+    <input type="text" id="songName" placeholder="曲名を入力 (例: カエルの合唱)">
+    <button onclick="generateScore()">楽譜を生成</button>
     <div id="score">ここに楽譜が表示されます</div>
-
-    <div class="monitor">
-        <div class="card">
-            <div class="label">Angle</div>
-            <div id="angleDisp" class="val">0°</div>
-        </div>
-        <div class="card">
-            <div class="label">Note</div>
-            <div id="noteDisp" class="val">--</div>
-        </div>
-    </div>
 
     <script>
         const socket = io();
-        
-        // 日本語音名リスト
-        const NOTES_JP = ["ド", "レ", "ミ", "ファ", "ソ", "ラ", "シ", "ド"];
-        const NOTES_TONE = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
-
-        // ピアノ音源の設定
+        // ピアノに近い音色のシンセサイザー設定
         const piano = new Tone.Sampler({
             urls: {
-                C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
-                C5: "C5.mp3"
+                A0: "A0.mp3", C1: "C1.mp3", "D#1": "Ds1.mp3", "F#1": "Fs1.mp3", A1: "A1.mp3", C2: "C2.mp3", "D#2": "Ds2.mp3", "F#2": "Fs2.mp3", A2: "A2.mp3", C3: "C3.mp3", "D#3": "Ds3.mp3", "F#3": "Fs3.mp3", A3: "A3.mp3", C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3", C5: "C5.mp3", "D#5": "Ds5.mp3", "F#5": "Fs5.mp3", A5: "A5.mp3", C6: "C6.mp3", "D#6": "Ds6.mp3", "F#6": "Fs6.mp3", A6: "A6.mp3", C7: "C7.mp3", "D#7": "Ds7.mp3", "F#7": "Fs7.mp3", A7: "A7.mp3", C8: "C8.mp3"
             },
             release: 1,
             baseUrl: "https://tonejs.github.io/audio/salamander/"
         }).toDestination();
 
-        let currentNoteIndex = null;
+        let currentNote = null;
 
-        // センサー受信時の処理
         socket.on("sensor", (data) => {
-            const angleEl = document.getElementById("angleDisp");
-            const noteEl = document.getElementById("noteDisp");
-
             if (data.active) {
-                // 角度を表示
-                const angle = Math.round(data.angle);
-                angleEl.textContent = angle + "°";
+                // 角度を音程に変換 (-90〜90度を C3〜C5くらいに割り当て)
+                const notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
+                const index = Math.floor(((data.angle + 90) / 180) * notes.length);
+                const note = notes[Math.max(0, Math.min(index, notes.length - 1))];
 
-                // 角度から音のインデックスを計算 (-45〜45度を想定)
-                let index = Math.floor(((data.angle + 45) / 90) * NOTES_TONE.length);
-                index = Math.max(0, Math.min(index, NOTES_TONE.length - 1));
-
-                if (index !== currentNoteIndex) {
-                    const note = NOTES_TONE[index];
-                    piano.triggerRelease(); 
-                    piano.triggerAttack(note);
-                    
-                    // 日本語音名を表示
-                    noteEl.textContent = NOTES_JP[index];
-                    currentNoteIndex = index;
+                if (note !== currentNote) {
+                    piano.triggerRelease(); // 前の音を止める
+                    piano.triggerAttack(note); // 新しい音を鳴らす
+                    currentNote = note;
                 }
             } else {
-                // 指を離した時
-                piano.triggerRelease();
-                currentNoteIndex = null;
-                angleEl.textContent = "0°";
-                noteEl.textContent = "--";
+                piano.triggerRelease(); // 指が離れたら音を止める
+                currentNote = null;
             }
         });
 
-        // 楽譜生成API呼び出し
         async function generateScore() {
-            const songName = document.getElementById("songInput").value;
-            if(!songName) return;
-            
-            const scoreEl = document.getElementById("score");
-            scoreEl.innerText = "生成中...";
-
-            try {
-                const res = await fetch("/api/generate-score", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ songName })
-                });
-                const data = await res.json();
-                scoreEl.innerText = data.text || data.error;
-                
-                // 音声エンジンの開始（ブラウザ制限解除）
-                await Tone.start();
-            } catch (e) {
-                scoreEl.innerText = "エラーが発生しました";
-            }
+            const songName = document.getElementById("songName").value;
+            const res = await fetch("/api/generate-score", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ songName })
+            });
+            const data = await res.json();
+            document.getElementById("score").innerText = data.text;
+            // 音を出す準備（ブラウザの制限対策）
+            await Tone.start();
         }
     </script>
 </body>
