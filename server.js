@@ -88,5 +88,5 @@ io.on("connection", (socket) => {
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "instrument.html")));
 app.get("/smart", (req, res) => res.sendFile(path.join(__dirname, "public", "smart.html")));
 
-const PORT = 8080;
+const PORT = 8081;
 server.listen(PORT, () => console.log(`Server running: http://localhost:${PORT}`));
