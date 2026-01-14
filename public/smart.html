@@ -19,50 +19,83 @@
 </head>
 <body>
   <div id="status">サーバー接続待ち...</div>
-  <button id="btn">ここを長押し<br>している間だけ鳴る</button>
+  
+  <div id="setup-layer">
+    <button id="start-btn" style="width:250px; height:100px; font-size:20px; background:#10b981; border-radius:15px; color:white;">
+      センサーを有効にして開始
+    </button>
+  </div>
 
+  <button id="play-btn" style="display:none; width: 250px; height: 250px; border-radius: 50%; background: #3b82f6; border: 8px solid #1d4ed8; color: white; font-size: 28px; font-weight: bold; margin-top: 50px; touch-action: manipulation;">
+    ここを長押し<br>している間だけ鳴る
+  </button>
   <script>
     const socket = io();
-    const btn = document.getElementById("btn");
     const status = document.getElementById("status");
+    const setupLayer = document.getElementById("setup-layer");
+    const startBtn = document.getElementById("start-btn");
+    const playBtn = document.getElementById("play-btn");
     let isPressed = false;
 
-    socket.on("connect", () => { status.innerText = "接続完了！"; });
-
-    // iPhone用センサー許可
-    async function requestPermission() {
+    // 1. 最初の「開始ボタン」でセンサー許可を求める（最重要）
+    startBtn.addEventListener("click", async () => {
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        return await DeviceOrientationEvent.requestPermission();
-      }
-      return 'granted';
-    }
-
-    // 指が触れた時
-    btn.addEventListener("touchstart", async (e) => {
-      e.preventDefault();
-      const permission = await requestPermission();
-      if (permission === 'granted') {
-        isPressed = true;
-        status.innerText = "演奏中！";
+        // iOS用：クリックイベントの直後、同期的に呼び出す
+        try {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission === 'granted') {
+            initApp();
+          } else {
+            alert("センサーへのアクセスが拒否されました");
+          }
+        } catch (e) {
+          alert("エラーが発生しました: " + e);
+        }
+      } else {
+        // AndroidやPCなどはそのまま開始
+        initApp();
       }
     });
 
-    // 指が離れた時
-    btn.addEventListener("touchend", (e) => {
-      isPressed = false;
-      status.innerText = "待機中...";
-      socket.emit("sensor", { active: false }); // 音を止める信号
-    });
+    function initApp() {
+      setupLayer.style.display = "none"; // 準備用ボタンを隠す
+      playBtn.style.display = "inline-block"; // 演奏用ボタンを出す
+      status.innerText = "センサー準備完了！";
+      
+      // 傾きセンサーの登録（一度だけ実行）
+      // --- smart.html の変更箇所 ---
 
-    // 傾きセンサーの送信
-    window.addEventListener("deviceorientation", (e) => {
-      if (isPressed) {
+      // 傾きセンサーの送信
+      window.addEventListener("deviceorientation", (e) => {
+        // isPressed のチェックを外して常に送る
         socket.emit("sensor", { 
           angle: e.gamma || 0, 
-          active: true 
+          active: isPressed // ここでボタンが押されているかどうかを送る
         });
-      }
+      }, true);
+    }
+
+    // 2. 演奏ボタンの処理
+    playBtn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      isPressed = true;
+      status.innerText = "演奏中！";
     });
+
+    playBtn.addEventListener("touchend", (e) => {
+      isPressed = false;
+      status.innerText = "待機中...";
+      socket.emit("sensor", { active: false });
+    });
+    
+    // PCテスト用
+    playBtn.addEventListener("mousedown", () => { isPressed = true; });
+    playBtn.addEventListener("mouseup", () => { 
+      isPressed = false; 
+      socket.emit("sensor", { active: false }); 
+    });
+
+    socket.on("connect", () => { status.innerText = "サーバーに接続しました"; });
   </script>
 </body>
 </html>
