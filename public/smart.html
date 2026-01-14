@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>演奏コントローラー</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { background: #0f172a; color: white; text-align: center; font-family: sans-serif; user-select: none; }
+    #btn { 
+      width: 250px; height: 250px; border-radius: 50%; 
+      background: #3b82f6; border: 8px solid #1d4ed8; 
+      color: white; font-size: 28px; font-weight: bold;
+      margin-top: 50px; touch-action: manipulation;
+    }
+    #btn:active { background: #10b981; border-color: #059669; }
+    #status { margin-top: 20px; color: #60a5fa; }
+  </style>
+</head>
+<body>
+  <div id="status">サーバー接続待ち...</div>
+  <button id="btn">ここを長押し<br>している間だけ鳴る</button>
+
+  <script>
+    const socket = io();
+    const btn = document.getElementById("btn");
+    const status = document.getElementById("status");
+    let isPressed = false;
+
+    socket.on("connect", () => { status.innerText = "接続完了！"; });
+
+    // iPhone用センサー許可
+    async function requestPermission() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        return await DeviceOrientationEvent.requestPermission();
+      }
+      return 'granted';
+    }
+
+    // 指が触れた時
+    btn.addEventListener("touchstart", async (e) => {
+      e.preventDefault();
+      const permission = await requestPermission();
+      if (permission === 'granted') {
+        isPressed = true;
+        status.innerText = "演奏中！";
+      }
+    });
+
+    // 指が離れた時
+    btn.addEventListener("touchend", (e) => {
+      isPressed = false;
+      status.innerText = "待機中...";
+      socket.emit("sensor", { active: false }); // 音を止める信号
+    });
+
+    // 傾きセンサーの送信
+    window.addEventListener("deviceorientation", (e) => {
+      if (isPressed) {
+        socket.emit("sensor", { 
+          angle: e.gamma || 0, 
+          active: true 
+        });
+      }
+    });
+  </script>
+</body>
+</html>
