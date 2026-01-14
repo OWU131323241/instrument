@@ -17,7 +17,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const MODEL = 'o1';
+const MODEL = 'gpt-4o';
 const OPENAI_API_ENDPOINT = "https://openai-api-proxy-746164391621.us-west1.run.app";
 
 let promptTemplate;
@@ -29,15 +29,16 @@ try {
 }
 
 // 楽譜生成API
+// --- server.js の API部分のみ抜粋 ---
 app.post("/api/generate-score", async (req, res) => {
     try {
         const { songName } = req.body;
-        // プロンプト内の ${songName} を置換
         const finalPrompt = promptTemplate.replace(/\${songName}/g, songName);
 
-        // --- 以前成功した「fetch」による通信方式 ---
         const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) throw new Error('OPENAI_API_KEY is not set');
+        
+        // 安全のために gpt-4o を使用（o1が使える環境なら o1-mini に変更可）
+        const MODEL = 'gpt-4o'; 
 
         const response = await fetch(OPENAI_API_ENDPOINT, {
             method: 'POST',
@@ -45,40 +46,42 @@ app.post("/api/generate-score", async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            // server.js 内の body 部分
             body: JSON.stringify({
                 model: MODEL,
                 messages: [
-                    { role: 'user', content: finalPrompt } // o1はsystemよりuser推奨
-                ],
-                // response_format を一旦消去する
-                // temperature も o1 ではエラーになることがあるので消すか 1 にする
+                    // system ではなく user に全ての指示（finalPrompt）を入れるのが最近の流行りです
+                    { role: 'user', content: finalPrompt }
+                ]
+                // 500エラーを避けるため、一旦 response_format は外す
             })
         });
 
+        const data = await response.json();
+
+        // 500エラーが起きた場合に備えて中身をチェック
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || 'OpenAI API error');
+            console.error("API Response Error:", data);
+            throw new Error(data.error?.message || 'API Error');
         }
 
-        const data = await response.json();
         const responseText = data.choices[0].message.content;
         
-        // JSONを解析して配列を取り出す
-        const parsedData = JSON.parse(responseText);
+        // AIがJSON以外の余計な文字（```json ... ```など）を返してきた時のための対策
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        const cleanJson = jsonMatch ? jsonMatch[0] : responseText;
+        
+        const parsedData = JSON.parse(cleanJson);
         const arrayData = Object.values(parsedData).find(Array.isArray);
         
-        if (!arrayData) throw new Error('No array found in response');
+        if (!arrayData) throw new Error('No array found');
         
-        // 配列を改行でつなげてテキストとして返す
         res.json({ text: arrayData.join('\n') });
 
     } catch (error) {
-        console.error("API Error:", error.message);
+        console.error("Server Error Log:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
-
 // Socket.io 通信
 io.on("connection", (socket) => {
   console.log("デバイス接続中:", socket.id);
