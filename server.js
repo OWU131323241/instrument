@@ -45,14 +45,14 @@ app.post("/api/generate-score", async (req, res) => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
+            // server.js 内の body 部分
             body: JSON.stringify({
                 model: MODEL,
                 messages: [
-                    // o1モデルの場合、'system' よりも 'user' メッセージに指示をまとめるのが推奨される場合があります
-                    { role: 'user', content: finalPrompt }
+                    { role: 'user', content: finalPrompt } // o1はsystemよりuser推奨
                 ],
-                // o1モデルは現在 response_format: { type: "json_object" } をサポートしていますが、
-                // temperature の設定は不要（自動で最適化される）な場合が多いです。
+                // response_format を一旦消去する
+                // temperature も o1 ではエラーになることがあるので消すか 1 にする
             })
         });
 
