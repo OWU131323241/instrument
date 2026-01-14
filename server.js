@@ -48,10 +48,11 @@ app.post("/api/generate-score", async (req, res) => {
             body: JSON.stringify({
                 model: MODEL,
                 messages: [
-                    { role: 'system', content: finalPrompt }
+                    // o1モデルの場合、'system' よりも 'user' メッセージに指示をまとめるのが推奨される場合があります
+                    { role: 'user', content: finalPrompt }
                 ],
-                response_format: { type: "json_object" },
-                temperature: 0.2
+                // o1モデルは現在 response_format: { type: "json_object" } をサポートしていますが、
+                // temperature の設定は不要（自動で最適化される）な場合が多いです。
             })
         });
 
