@@ -17,7 +17,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const MODEL = 'gpt-4o';
+const MODEL = 'o1-mini / o1';
 const OPENAI_API_ENDPOINT = "https://openai-api-proxy-746164391621.us-west1.run.app";
 
 let promptTemplate;
