@@ -17,7 +17,7 @@ const io = new Server(server, {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const MODEL = 'gpt-4o';
+const MODEL = 'o1-preview';
 const OPENAI_API_ENDPOINT = "https://openai-api-proxy-746164391621.us-west1.run.app";
 
 let promptTemplate;
@@ -38,7 +38,7 @@ app.post("/api/generate-score", async (req, res) => {
         const apiKey = process.env.OPENAI_API_KEY;
         
         // 安全のために gpt-4o を使用（o1が使える環境なら o1-mini に変更可）
-        const MODEL = 'o1-preview';
+        const MODEL = 'gpt-4o';
 
         const response = await fetch(OPENAI_API_ENDPOINT, {
             method: 'POST',
