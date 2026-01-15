@@ -88,7 +88,10 @@
             release: 1,
             baseUrl: "https://tonejs.github.io/audio/salamander/"
         }).toDestination();
-
+        // ...（略）...
+        let currentNoteIndex = null; 
+        let isAudioStarted = false; // ← この一行を追加！
+        // ...（略）...
         let currentNoteIndex = null;
 
         socket.on("sensor", (data) => {
