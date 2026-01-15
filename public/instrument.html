@@ -79,38 +79,84 @@
         const socket = io();
         const NOTES_JP = ["ド", "レ", "ミ", "ファ", "ソ", "ラ", "シ", "ド"];
         const NOTES_TONE = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
-
+        
+        // 1. 変数の宣言（ここが重要です）
+        let currentNoteIndex = null;
+        let isAudioStarted = false; 
+        
+        // サンプラーの初期化
         const piano = new Tone.Sampler({
             urls: {
                 C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
                 C5: "C5.mp3"
             },
             release: 1,
-            baseUrl: "https://tonejs.github.io/audio/salamander/"
+            baseUrl: "https://tonejs.github.io/audio/salamander/",
+            onload: () => {
+                console.log("Piano samples loaded!");
+            }
         }).toDestination();
-        // ...（略）...
-        let currentNoteIndex = null; 
-        let isAudioStarted = false; // ← この一行を追加！
-        // ...（略）...
-        let currentNoteIndex = null;
-
+        
+        // 2. 音声を有効化する関数
+        async function initAudio() {
+            await Tone.start();
+            isAudioStarted = true;
+            console.log("Audio Context started");
+            const scoreEl = document.getElementById("score");
+            if (scoreEl.innerText.includes("クリック")) {
+                scoreEl.innerText = "準備完了！曲名を入力して生成してください。";
+            }
+        }
+        
+        // 画面クリックで初期化
+        window.addEventListener('click', () => {
+            if (!isAudioStarted) initAudio();
+        }, { once: true });
+        
+        // 3. 楽譜生成関数
+        async function generateScore() {
+            const songName = document.getElementById("songInput").value;
+            if (!songName) {
+                alert("曲名を入力してください");
+                return;
+            }
+        
+            // ここでエラーが出ていたので、isAudioStarted の宣言が必要です
+            if (!isAudioStarted) await initAudio();
+            
+            const scoreEl = document.getElementById("score");
+            scoreEl.innerText = "生成中...";
+        
+            try {
+                const res = await fetch("/api/generate-score", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ songName })
+                });
+                const data = await res.json();
+                scoreEl.innerText = data.text || data.error || "生成に失敗しました";
+            } catch (e) {
+                scoreEl.innerText = "通信エラーが発生しました";
+            }
+        }
+        
+        // 4. センサー受信
         socket.on("sensor", (data) => {
+            if (!isAudioStarted) return;
+        
             const angleEl = document.getElementById("angleDisp");
             const noteEl = document.getElementById("noteDisp");
-
             const angle = Math.round(data.angle);
             angleEl.textContent = angle + "°";
-
+        
             let index = Math.floor(((data.angle + 45) / 90) * NOTES_TONE.length);
             index = Math.max(0, Math.min(index, NOTES_TONE.length - 1));
-            
             noteEl.textContent = NOTES_JP[index];
-
+        
             if (data.active) {
                 if (index !== currentNoteIndex) {
-                    const note = NOTES_TONE[index];
                     piano.triggerRelease(); 
-                    piano.triggerAttack(note);
+                    piano.triggerAttack(NOTES_TONE[index]);
                     currentNoteIndex = index;
                 }
             } else {
@@ -118,44 +164,6 @@
                 currentNoteIndex = null;
             }
         });
-
-        async function generateScore() {
-            // 1. 入力欄から曲名を取得（これが消えていたため動かなくなっていました）
-            const songName = document.getElementById("songInput").value;
-            
-            // 曲名が空なら何もしない
-            if (!songName) {
-                alert("曲名を入力してください");
-                return;
-            }
-        
-            // 音声の有効化チェック
-            if (!isAudioStarted) await initAudio();
-            
-            const scoreEl = document.getElementById("score");
-            scoreEl.innerText = "生成中..."; // ここで「生成中...」に切り替わります
-        
-            try {
-                const res = await fetch("/api/generate-score", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ songName }) // 取得した曲名をサーバーに送る
-                });
-                
-                const data = await res.json();
-                
-                if (data.error) {
-                    scoreEl.innerText = "エラー: " + data.error;
-                } else {
-                    // 生成された楽譜を表示
-                    scoreEl.innerText = data.text;
-                }
-                
-            } catch (e) {
-                console.error("Fetch error:", e);
-                scoreEl.innerText = "通信エラーが発生しました";
-            }
-        }
     </script>
 </body>
 </html>
