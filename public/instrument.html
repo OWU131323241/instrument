@@ -117,8 +117,14 @@
         });
 
         async function generateScore() {
+            // 1. まず入力欄から曲名を取得する（ここが抜けていました！）
             const songName = document.getElementById("songInput").value;
-            if(!songName) return;
+            if (!songName) {
+                alert("曲名を入力してください");
+                return;
+            }
+
+            if (!isAudioStarted) await initAudio();
             
             const scoreEl = document.getElementById("score");
             scoreEl.innerText = "生成中...";
@@ -127,8 +133,9 @@
                 const res = await fetch("/api/generate-score", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ songName })
+                    body: JSON.stringify({ songName }) // これで songName が正しく送られます
                 });
+                // ...以下略
                 const data = await res.json();
                 scoreEl.innerText = data.text || data.error;
                 
