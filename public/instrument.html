@@ -76,50 +76,80 @@
 
     <script>
         // ... (以下、既存のJavaScriptコードと同じ) ...
+        // ... (HTML部分にボタンを追加することをお勧めします)
+        // <button id="startBtn">演奏を開始する (音声を有効化)</button>
+        
         const socket = io();
         const NOTES_JP = ["ド", "レ", "ミ", "ファ", "ソ", "ラ", "シ", "ド"];
         const NOTES_TONE = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
-
+        
+        // サンプラーの初期化
         const piano = new Tone.Sampler({
             urls: {
                 C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3",
                 C5: "C5.mp3"
             },
             release: 1,
-            baseUrl: "https://tonejs.github.io/audio/salamander/"
+            baseUrl: "https://tonejs.github.io/audio/salamander/",
+            onload: () => {
+                console.log("Piano samples loaded!");
+            }
         }).toDestination();
-
+        
         let currentNoteIndex = null;
-
+        let isAudioStarted = false;
+        
+        // ユーザー操作で音声を有効化する関数
+        async function initAudio() {
+            await Tone.start();
+            isAudioStarted = true;
+            console.log("Audio Context started");
+            document.getElementById("score").innerText = "準備完了！スマホを傾けてください。";
+        }
+        
+        // 画面のどこかをクリックしたら音声を有効化（必須）
+        window.addEventListener('click', () => {
+            if (!isAudioStarted) initAudio();
+        }, { once: true });
+        
         socket.on("sensor", (data) => {
+            if (!isAudioStarted) return; // 音声が有効化されるまで無視
+        
             const angleEl = document.getElementById("angleDisp");
             const noteEl = document.getElementById("noteDisp");
-
+        
             const angle = Math.round(data.angle);
             angleEl.textContent = angle + "°";
-
+        
+            // 角度から音階を計算
             let index = Math.floor(((data.angle + 45) / 90) * NOTES_TONE.length);
             index = Math.max(0, Math.min(index, NOTES_TONE.length - 1));
             
             noteEl.textContent = NOTES_JP[index];
-
+        
             if (data.active) {
+                // 前の音と違うインデックスになった時だけ鳴らす
                 if (index !== currentNoteIndex) {
                     const note = NOTES_TONE[index];
+                    // 既存の音を止めて新しい音を鳴らす
                     piano.triggerRelease(); 
                     piano.triggerAttack(note);
                     currentNoteIndex = index;
+                    console.log("Playing:", note);
                 }
             } else {
-                piano.triggerRelease();
-                currentNoteIndex = null;
+                if (currentNoteIndex !== null) {
+                    piano.triggerRelease();
+                    currentNoteIndex = null;
+                }
             }
         });
-
+        
+        // generateScore内からも initAudio を呼ぶようにしておくと確実です
         async function generateScore() {
-            const songName = document.getElementById("songInput").value;
-            if(!songName) return;
-            
+            if (!isAudioStarted) await initAudio();
+            // ... (以下、既存のFetch処理)
+    
             const scoreEl = document.getElementById("score");
             scoreEl.innerText = "生成中...";
 
